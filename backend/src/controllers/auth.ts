@@ -10,6 +10,8 @@ import NotFoundError from '../errors/not-found-error'
 import UnauthorizedError from '../errors/unauthorized-error'
 import User from '../models/user'
 
+import { sanitizeObject } from '../utils/tAz';
+
 // POST /auth/login
 const login = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -35,8 +37,9 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
 // POST /auth/register
 const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { email, password, name } = req.body
-        const newUser = new User({ email, password, name })
+        const cleanData = sanitizeObject(req.body);
+        const { email, password, name } = cleanData;
+        const newUser = new User({ email, password, name });
         await newUser.save()
         const accessToken = newUser.generateAccessToken()
         const refreshToken = await newUser.generateRefreshToken()
@@ -191,8 +194,11 @@ const updateCurrentUser = async (
     next: NextFunction
 ) => {
     const userId = res.locals.user._id
+
     try {
-        const updatedUser = await User.findByIdAndUpdate(userId, req.body, {
+        const cleanData = sanitizeObject(req.body)
+
+        const updatedUser = await User.findByIdAndUpdate(userId, cleanData, {
             new: true,
         }).orFail(
             () =>
@@ -200,6 +206,7 @@ const updateCurrentUser = async (
                     'Пользователь по заданному id отсутствует в базе'
                 )
         )
+
         res.status(200).json(updatedUser)
     } catch (error) {
         next(error)

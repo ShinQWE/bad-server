@@ -4,9 +4,9 @@ import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
 
+import { sanitizeObject } from '../utils/tAz'
+
 // TODO: Добавить guard admin
-// eslint-disable-next-line max-len
-// Get GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
 export const getCustomers = async (
     req: Request,
     res: Response,
@@ -124,15 +124,11 @@ export const getCustomers = async (
             'orders',
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'products',
-                },
+                populate: { path: 'products' },
             },
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'customer',
-                },
+                populate: { path: 'customer' },
             },
         ])
 
@@ -153,7 +149,6 @@ export const getCustomers = async (
     }
 }
 
-// TODO: Добавить guard admin
 // Get /customers/:id
 export const getCustomerById = async (
     req: Request,
@@ -171,20 +166,19 @@ export const getCustomerById = async (
     }
 }
 
-// TODO: Добавить guard admin
-// Patch /customers/:id
+// Patch /customers/:id — 💥 ВОТ ТУТ МЫ ДОБАВИЛИ ФИЛЬТРАЦИЮ
 export const updateCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
+        const cleanData = sanitizeObject(req.body)
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            req.body,
-            {
-                new: true,
-            }
+            cleanData,
+            { new: true }
         )
             .orFail(
                 () =>
@@ -193,13 +187,13 @@ export const updateCustomer = async (
                     )
             )
             .populate(['orders', 'lastOrder'])
+
         res.status(200).json(updatedUser)
     } catch (error) {
         next(error)
     }
 }
 
-// TODO: Добавить guard admin
 // Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,

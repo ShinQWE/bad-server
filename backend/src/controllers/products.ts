@@ -8,6 +8,8 @@ import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
 
+import { sanitizeObject } from '../utils/tAz'
+
 // GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -40,9 +42,9 @@ const createProduct = async (
     next: NextFunction
 ) => {
     try {
-        const { description, category, price, title, image } = req.body
+        const cleanData = sanitizeObject(req.body)
+        const { image } = cleanData
 
-        // Переносим картинку из временной папки
         if (image) {
             movingFile(
                 image.fileName,
@@ -51,13 +53,7 @@ const createProduct = async (
             )
         }
 
-        const product = await Product.create({
-            description,
-            image,
-            category,
-            price,
-            title,
-        })
+        const product = await Product.create(cleanData)
         return res.status(constants.HTTP_STATUS_CREATED).send(product)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -81,9 +77,10 @@ const updateProduct = async (
 ) => {
     try {
         const { productId } = req.params
-        const { image } = req.body
+        const cleanData = sanitizeObject(req.body)
 
-        // Переносим картинку из временной папки
+        const { image } = cleanData
+
         if (image) {
             movingFile(
                 image.fileName,
@@ -96,13 +93,14 @@ const updateProduct = async (
             productId,
             {
                 $set: {
-                    ...req.body,
-                    price: req.body.price ? req.body.price : null,
-                    image: req.body.image ? req.body.image : undefined,
+                    ...cleanData,
+                    price: cleanData.price ? cleanData.price : null,
+                    image: cleanData.image ? cleanData.image : undefined,
                 },
             },
             { runValidators: true, new: true }
         ).orFail(() => new NotFoundError('Нет товара по заданному id'))
+
         return res.send(product)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
