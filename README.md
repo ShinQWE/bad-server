@@ -1,5 +1,7 @@
 https://github.com/ShinQWE/bad-server#
 
+Алексей, 13 когорта, FullStack
+
 # Проектная работа "WebLarek. Плохой сервер.", спринт 17
 
 ## Подготовка к работе
