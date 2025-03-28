@@ -184,25 +184,25 @@ export const getOrdersCurrentUser = async (
         let orders = user.orders as unknown as IOrder[]
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i');
-            const searchNumber = Number(search);
-            const products = await Product.find({ title: searchRegex });
-        
-            // Убедитесь, что productIds имеет правильный тип
-            const productIds: Types.ObjectId[] = products.map((product) => product._id as Types.ObjectId);
-        
+            // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
+            const searchRegex = new RegExp(search as string, 'i')
+            const searchNumber = Number(search)
+            const products = await Product.find({ title: searchRegex })
+            const productIds = products.map((product) => product._id)
+
             orders = orders.filter((order) => {
+                // eslint-disable-next-line max-len
                 const matchesProductTitle = order.products.some((product) =>
-                    productIds.some((id) => (id as Types.ObjectId).equals(product._id as Types.ObjectId))
-                );
+                    productIds.some((id) => id.equals(product._id))
+                )
+                // eslint-disable-next-line max-len
                 const matchesOrderNumber =
                     !Number.isNaN(searchNumber) &&
-                    order.orderNumber === searchNumber;
-        
-                return matchesOrderNumber || matchesProductTitle;
-            });
+                    order.orderNumber === searchNumber
+
+                return matchesOrderNumber || matchesProductTitle
+            })
         }
-        
 
         const totalOrders = orders.length
         const totalPages = Math.ceil(totalOrders / Number(limit))
@@ -294,17 +294,16 @@ export const createOrder = async (
         const { address, payment, phone, total, email, items, comment } =
             req.body
 
-            items.forEach((id: Types.ObjectId) => {
-                const product = products.find((p) => p._id instanceof Types.ObjectId && p._id.equals(id));
-                if (!product) {
-                    throw new BadRequestError(`Товар с id ${id} не найден`);
-                }
-                if (product.price === null) {
-                    throw new BadRequestError(`Товар с id ${id} не продается`);
-                }
-                return basket.push(product);
-            });
-            
+        items.forEach((id: Types.ObjectId) => {
+            const product = products.find((p) => p._id.equals(id))
+            if (!product) {
+                throw new BadRequestError(`Товар с id ${id} не найден`)
+            }
+            if (product.price === null) {
+                throw new BadRequestError(`Товар с id ${id} не продается`)
+            }
+            return basket.push(product)
+        })
         const totalBasket = basket.reduce((a, c) => a + c.price, 0)
         if (totalBasket !== total) {
             return next(new BadRequestError('Неверная сумма заказа'))
