@@ -135,7 +135,7 @@ userSchema.methods.generateAccessToken = function generateAccessToken() {
     // Создание accessToken токена возможно в контроллере авторизации
     return jwt.sign(
         {
-            _id: user._id.toString(),
+            _id: (user._id as Types.ObjectId).toString(),
             email: user.email,
         },
         ACCESS_TOKEN.secret,
@@ -152,7 +152,7 @@ userSchema.methods.generateRefreshToken =
         // Создание refresh токена возможно в контроллере авторизации/регистрации
         const refreshToken = jwt.sign(
             {
-                _id: user._id.toString(),
+                _id: (user._id as Types.ObjectId).toString(),
             },
             REFRESH_TOKEN.secret,
             {
