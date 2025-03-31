@@ -27,8 +27,20 @@ export const getOrders = async (
             orderDateTo,
             search,
         } = req.query
-
+        const limits = Math.min(Number(limit), 5).toString()
         const filters: FilterQuery<Partial<IOrder>> = {}
+
+        if (status) {
+            if (typeof status !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(status)) {
+                throw new BadRequestError('невалидный параметр статуса');
+            }
+            filters.status = status;
+        }
+        
+        if (search && /[^\w\s]/.test(search as string)) {
+            throw new BadRequestError('невалидный поисковый запрос');
+        }
+        
 
         if (status) {
             if (typeof status === 'object') {
@@ -116,8 +128,8 @@ export const getOrders = async (
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (Number(page) - 1) * Number(limits) },
+            { $limit: Number(limits) },
             {
                 $group: {
                     _id: '$_id',
@@ -133,17 +145,29 @@ export const getOrders = async (
 
         const orders = await Order.aggregate(aggregatePipeline)
         const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / Number(limits))
 
+        // Устанавливаем статус ответа на 200 (OK)
         res.status(200).json({
-            orders,
-            pagination: {
-                totalOrders,
-                totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
-            },
-        })
+        // Включаем массив заказов в ответ
+        orders,
+        
+        // Объект пагинации с информацией о страницах
+        pagination: {
+            // Общее количество заказов
+            totalOrders,
+            
+            // Общее количество страниц
+            totalPages,
+            
+            // Текущая страница, преобразованная в число
+            currentPage: Number(page),
+            
+            // Размер страницы (количество заказов на странице), преобразованный в число
+            pageSize: Number(limits),
+        },
+    });
+
     } catch (error) {
         next(error)
     }
@@ -157,10 +181,8 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-        const options = {
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
-        }
+        const limits = Math.min(Number(limit), 10)
+        const skip = (Number(page) - 1) * limits
 
         const user = await User.findById(userId)
             .populate({
@@ -180,20 +202,21 @@ export const getOrdersCurrentUser = async (
                         'Пользователь по заданному id отсутствует в базе'
                     )
             )
-
+        // Присваиваем переменной orders заказы пользователя, приводя их к типу IOrder[]    
         let orders = user.orders as unknown as IOrder[]
-
-        if (search) {
+        // Проверяем, является ли search строкой, ее длина меньше 100 символов и соответствует регулярному выражению
+        const safe = typeof search === 'string' && search.length < 100 && /^[\wа-яА-ЯёЁ0-9\s\-.,]+$/.test(search)    
+        if (search && safe) {
             // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
-            const searchRegex = new RegExp(search as string, 'i')
+            const searchRegex = new RegExp(search, 'i')
             const searchNumber = Number(search)
             const products = await Product.find({ title: searchRegex })
-            const productIds = products.map((product) => product._id)
-
+            const productIds: Types.ObjectId[] = products.map((p) => p._id as Types.ObjectId)
+            // Фильтруем заказы, оставляя только те, которые соответствуют условиям поиска
             orders = orders.filter((order) => {
                 // eslint-disable-next-line max-len
                 const matchesProductTitle = order.products.some((product) =>
-                    productIds.some((id) => id.equals(product._id))
+                    productIds.some((id) => (product._id as Types.ObjectId).equals(id))
                 )
                 // eslint-disable-next-line max-len
                 const matchesOrderNumber =
@@ -205,9 +228,9 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const totalPages = Math.ceil(totalOrders / limits)
 
-        orders = orders.slice(options.skip, options.skip + options.limit)
+        orders = orders.slice(skip, skip + limits)
 
         return res.send({
             orders,
@@ -215,7 +238,7 @@ export const getOrdersCurrentUser = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: limits,
             },
         })
     } catch (error) {
@@ -230,8 +253,9 @@ export const getOrderByNumber = async (
     next: NextFunction
 ) => {
     try {
+        const orderNumber = typeof req.params.orderNumber === 'string' ? req.params.orderNumber : ''
         const order = await Order.findOne({
-            orderNumber: req.params.orderNumber,
+            orderNumber
         })
             .populate(['customer', 'products'])
             .orFail(
@@ -256,8 +280,9 @@ export const getOrderCurrentUserByNumber = async (
 ) => {
     const userId = res.locals.user._id
     try {
+        const orderNumber = typeof req.params.orderNumber === 'string' ? req.params.orderNumber : ''
         const order = await Order.findOne({
-            orderNumber: req.params.orderNumber,
+            orderNumber
         })
             .populate(['customer', 'products'])
             .orFail(
@@ -293,9 +318,13 @@ export const createOrder = async (
         const userId = res.locals.user._id
         const { address, payment, phone, total, email, items, comment } =
             req.body
+        
+        if (!Array.isArray(items)) {
+            return next(new BadRequestError('должен быть массивом'))
+        }
 
         items.forEach((id: Types.ObjectId) => {
-            const product = products.find((p) => p._id.equals(id))
+            const product = products.find((p) => (p._id as Types.ObjectId).equals(id))
             if (!product) {
                 throw new BadRequestError(`Товар с id ${id} не найден`)
             }
@@ -338,9 +367,13 @@ export const updateOrder = async (
     next: NextFunction
 ) => {
     try {
-        const { status } = req.body
+         // Проверяем, является ли статус строкой, и присваиваем его переменной
+        const status = typeof req.body.status === 'string' ? req.body.status : undefined
+        // Получаем номер заказа из параметров запроса
+        const orderNumber = typeof req.params.orderNumber === 'string' ? req.params.orderNumber : ''
+        // Ищем и обновляем заказ по номеру заказа
         const updatedOrder = await Order.findOneAndUpdate(
-            { orderNumber: req.params.orderNumber },
+            { orderNumber },
             { status },
             { new: true, runValidators: true }
         )
@@ -370,7 +403,8 @@ export const deleteOrder = async (
     next: NextFunction
 ) => {
     try {
-        const deletedOrder = await Order.findByIdAndDelete(req.params.id)
+        const id = typeof req.params.id === 'string' ? req.params.id : ''
+        const deletedOrder = await Order.findByIdAndDelete(id)
             .orFail(
                 () =>
                     new NotFoundError(

@@ -90,14 +90,15 @@ export const getCustomers = async (
                 $lte: Number(orderCountTo),
             }
         }
-
-        if (search) {
+        // Проверка, существует ли переменная search и является ли она строкой с длиной менее 100 символов
+        if (search && typeof search === 'string' && search.length < 100) {
             const searchRegex = new RegExp(search as string, 'i')
+            // Ищем заказы, в которых поле deliveryAddress соответствует регулярному выражению
             const orders = await Order.find(
                 {
                     $or: [{ deliveryAddress: searchRegex }],
                 },
-                '_id'
+                '_id'  // Ограничиваем возвращаемые поля только ID заказа
             )
 
             const orderIds = orders.map((order) => order._id)
@@ -113,13 +114,13 @@ export const getCustomers = async (
         if (sortField && sortOrder) {
             sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
         }
-
+        const limits = Math.min(Number(limit), 10) // лимит
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
+            skip: (Number(page) - 1) * limits,
+            limit: limits,
         }
-
+        // Ищем пользователей с заданными фильтрами, опциями и заполняем связанные поля
         const users = await User.find(filters, null, options).populate([
             'orders',
             {
@@ -135,17 +136,28 @@ export const getCustomers = async (
                 },
             },
         ])
-
+         // Подсчитываем общее количество пользователей, соответствующих фильтрам
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / limits)
 
+        // Отправляем ответ с данными пользователей и информацией о пагинации
         res.status(200).json({
-            customers: users,
+        customers: users.map((user) => ({
+            _id: user._id, // ID пользователя
+            name: user.name, // Имя пользователя
+            email: user.email, // Email пользователя
+            roles: user.roles, // Роли пользователя
+            totalAmount: user.totalAmount, // Общая сумма заказов пользователя
+            orderCount: user.orderCount, // Количество заказов пользователя
+            lastOrderDate: user.lastOrderDate, // Дата последнего заказа
+            orders: user.orders, // Заказы пользователя
+            lastOrder: user.lastOrder, // Последний заказ пользователя
+        })),
             pagination: {
                 totalUsers,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: Number(limit),
+                pageSize: limits,
             },
         })
     } catch (error) {
@@ -161,11 +173,21 @@ export const getCustomerById = async (
     next: NextFunction
 ) => {
     try {
-        const user = await User.findById(req.params.id).populate([
+        // Извлекаем ID клиента из параметров запроса и проверяем его тип
+        const id = typeof req.params.id === 'string' ? req.params.id : ''
+        // Находим пользователя по ID и заполняем связанные поля orders и lastOrder
+        const user = await User.findById(id).populate([
             'orders',
             'lastOrder',
         ])
-        res.status(200).json(user)
+        res.status(200).json({
+            _id: user?._id,
+            name: user?.name,
+            email: user?.email,
+            roles: user?.roles,
+            orders: user?.orders,
+            lastOrder: user?.lastOrder,
+        })
     } catch (error) {
         next(error)
     }
@@ -178,13 +200,16 @@ export const updateCustomer = async (
     res: Response,
     next: NextFunction
 ) => {
+    // Извлекаем данные из тела запроса и проверяем их тип
+    const name = typeof req.body.name === 'string' ? req.body.name : undefined
+    const roles = Array.isArray(req.body.roles) ? req.body.roles : undefined
+    const email = typeof req.body.email === 'string' ? req.body.email : undefined
     try {
+        const id = typeof req.params.id === 'string' ? req.params.id : ''
         const updatedUser = await User.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            {
-                new: true,
-            }
+            id,
+            { name, email, roles },
+            { new: true, runValidators: true }
         )
             .orFail(
                 () =>
@@ -193,7 +218,14 @@ export const updateCustomer = async (
                     )
             )
             .populate(['orders', 'lastOrder'])
-        res.status(200).json(updatedUser)
+            res.status(200).json({
+                _id: updatedUser ._id, // ID обновленного пользователя
+                name: updatedUser .name, // Имя обновленного пользователя
+                email: updatedUser .email, // Email обновленного пользователя
+                roles: updatedUser .roles, // Роли обновленного пользователя
+                orders: updatedUser .orders, // Заказы обновленного пользователя
+                lastOrder: updatedUser .lastOrder, // Последний заказ обновленного пользователя
+            });
     } catch (error) {
         next(error)
     }
@@ -207,13 +239,19 @@ export const deleteCustomer = async (
     next: NextFunction
 ) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
+        const id = typeof req.params.id === 'string' ? req.params.id : ''
+        const deletedUser = await User.findByIdAndDelete(id).orFail(
             () =>
                 new NotFoundError(
                     'Пользователь по заданному id отсутствует в базе'
                 )
         )
-        res.status(200).json(deletedUser)
+        res.status(200).json({
+            _id: deletedUser ._id, // ID удаленного пользователя
+            email: deletedUser .email, // Email удаленного пользователя
+            name: deletedUser .name, // Имя удаленного пользователя
+            roles: deletedUser .roles, // Роли удаленного пользователя
+        });
     } catch (error) {
         next(error)
     }

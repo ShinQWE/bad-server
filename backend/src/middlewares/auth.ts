@@ -10,22 +10,20 @@ import UserModel, { Role } from '../models/user'
 // есть файл middlewares/auth.js, в нём мидлвэр для проверки JWT;
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
-    let payload: JwtPayload | null = null
     const authHeader = req.header('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
         throw new UnauthorizedError('Невалидный токен')
     }
+    const accessTokenParts = authHeader.split(' ')[1]
     try {
-        const accessTokenParts = authHeader.split(' ')
-        const aTkn = accessTokenParts[1]
-        payload = jwt.verify(aTkn, ACCESS_TOKEN.secret) as JwtPayload
-
-        const user = await UserModel.findOne(
-            {
-                _id: new Types.ObjectId(payload.sub),
-            },
-            { password: 0, salt: 0 }
-        )
+        const payload = jwt.verify(accessTokenParts, ACCESS_TOKEN.secret) as JwtPayload
+        if (typeof payload.sub !== 'string') {
+            return next(new UnauthorizedError('Невалидный токен'))
+        }
+        const user = await UserModel.findById(payload.sub, {
+            password: 0,
+            salt: 0,
+        })
 
         if (!user) {
             return next(new ForbiddenError('Нет доступа'))
@@ -41,24 +39,35 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     }
 }
 
+// Экспортируем функцию middleware для проверки ролей пользователей
 export function roleGuardMiddleware(...roles: Role[]) {
+    // Возвращаем функцию middleware, которая принимает req, res и next
     return (_req: Request, res: Response, next: NextFunction) => {
-        if (!res.locals.user) {
-            return next(new UnauthorizedError('Необходима авторизация'))
+        // Извлекаем пользователя из локальных данных ответа
+        const { user } = res.locals;
+
+        // Проверяем, авторизован ли пользователь
+        if (!user) {
+            // Если пользователь не авторизован, вызываем ошибку UnauthorizedError
+            return next(new UnauthorizedError('Необходима авторизация'));
         }
 
+        // Проверяем, имеет ли пользователь доступ, сравнивая его роли с разрешенными
         const hasAccess = roles.some((role) =>
-            res.locals.user.roles.includes(role)
-        )
+            user.roles.includes(role) // Проверяем, есть ли у пользователя хотя бы одна из требуемых ролей
+        );
 
+        // Если доступ не предоставлен, вызываем ошибку ForbiddenError
         if (!hasAccess) {
-            return next(new ForbiddenError('Доступ запрещен'))
+            return next(new ForbiddenError('Доступ запрещен'));
         }
 
-        return next()
+        // Если доступ предоставлен, продолжаем выполнение следующего middleware
+        return next();
     }
 }
 
+// Экспортируем функцию middleware для проверки доступа текущего пользователя к сущности
 export function currentUserAccessMiddleware<T>(
     model: Model<T>,
     idProperty: string,
@@ -66,12 +75,12 @@ export function currentUserAccessMiddleware<T>(
 ) {
     return async (req: Request, res: Response, next: NextFunction) => {
         const id = req.params[idProperty]
-
-        if (!res.locals.user) {
+        const {user} = res.locals
+        if (!user) {
             return next(new UnauthorizedError('Необходима авторизация'))
         }
 
-        if (res.locals.user.roles.includes(Role.Admin)) {
+        if (user.roles.includes(Role.Admin)) {
             return next()
         }
 
@@ -82,7 +91,7 @@ export function currentUserAccessMiddleware<T>(
         }
 
         const userEntityId = entity[userProperty] as Types.ObjectId
-        const hasAccess = new Types.ObjectId(res.locals.user.id).equals(
+        const hasAccess = new Types.ObjectId(user.id).equals(
             userEntityId
         )
 

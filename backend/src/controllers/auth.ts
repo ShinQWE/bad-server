@@ -24,7 +24,12 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
         )
         return res.json({
             success: true,
-            user,
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                roles: user.roles,
+            },
             accessToken,
         })
     } catch (err) {
@@ -36,19 +41,25 @@ const login = async (req: Request, res: Response, next: NextFunction) => {
 const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { email, password, name } = req.body
-        const newUser = new User({ email, password, name })
-        await newUser.save()
-        const accessToken = newUser.generateAccessToken()
-        const refreshToken = await newUser.generateRefreshToken()
-
+        const user = new User({ email, password, name })
+        await user.save()
+        const accessToken = user.generateAccessToken()
+        const refreshToken = await user.generateRefreshToken()
+        // Устанавливаем токен обновления в куки
         res.cookie(
             REFRESH_TOKEN.cookie.name,
             refreshToken,
             REFRESH_TOKEN.cookie.options
         )
+        // Отправляем ответ с информацией о пользователе и токеном доступа
         return res.status(constants.HTTP_STATUS_CREATED).json({
             success: true,
-            user: newUser,
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                roles: user.roles,
+            },
             accessToken,
         })
     } catch (error) {
@@ -78,8 +89,16 @@ const getCurrentUser = async (
                     'Пользователь по заданному id отсутствует в базе'
                 )
         )
-        res.json({ user, success: true })
-    } catch (error) {
+        res.json({
+            success: true,
+            user: {
+                _id: user._id,
+                email: user.email,
+                name: user.name,
+                roles: user.roles,
+            },
+        })
+    }  catch (error) {
         next(error)
     }
 }
@@ -122,11 +141,11 @@ const deleteRefreshTokenInUser = async (
 const logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
         await deleteRefreshTokenInUser(req, res, next)
-        const expireCookieOptions = {
+
+        res.cookie(REFRESH_TOKEN.cookie.name, '', {
             ...REFRESH_TOKEN.cookie.options,
             maxAge: -1,
-        }
-        res.cookie(REFRESH_TOKEN.cookie.name, '', expireCookieOptions)
+        })
         res.status(200).json({
             success: true,
         })
@@ -156,28 +175,29 @@ const refreshAccessToken = async (
         )
         return res.json({
             success: true,
-            user: userWithRefreshTkn,
+            user: {
+                _id: userWithRefreshTkn._id,
+                email: userWithRefreshTkn.email,
+                name: userWithRefreshTkn.name,
+                roles: userWithRefreshTkn.roles,
+            },
             accessToken,
         })
     } catch (error) {
         return next(error)
     }
 }
-
+// Обработчик для получения ролей текущего пользователя
 const getCurrentUserRoles = async (
-    req: Request,
+    _req: Request,
     res: Response,
     next: NextFunction
 ) => {
-    const userId = res.locals.user._id
     try {
-        await User.findById(userId, req.body, {
-            new: true,
-        }).orFail(
-            () =>
-                new NotFoundError(
-                    'Пользователь по заданному id отсутствует в базе'
-                )
+        const userId = res.locals.user._id
+         // Ищем пользователя по ID в базе данных
+        await User.findById(userId).orFail(
+            () => new NotFoundError('Пользователь по заданному id отсутствует в базе')
         )
         res.status(200).json(res.locals.user.roles)
     } catch (error) {
@@ -191,16 +211,24 @@ const updateCurrentUser = async (
     next: NextFunction
 ) => {
     const userId = res.locals.user._id
+    // Проверяем и извлекаем имя и email из тела запроса, если они являются строками
+    const name = typeof req.body.name === 'string' ? req.body.name : undefined
+    const email = typeof req.body.email === 'string' ? req.body.email : undefined
     try {
-        const updatedUser = await User.findByIdAndUpdate(userId, req.body, {
-            new: true,
-        }).orFail(
-            () =>
-                new NotFoundError(
-                    'Пользователь по заданному id отсутствует в базе'
-                )
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { name, email },
+            { new: true, runValidators: true } // возвращаем обновленный документ и запускаем валидаторы
+        ).orFail(() =>
+            new NotFoundError('Пользователь по заданному id отсутствует в базе')
         )
-        res.status(200).json(updatedUser)
+
+        res.status(200).json({
+            _id: updatedUser._id,
+            email: updatedUser.email,
+            name: updatedUser.name,
+            roles: updatedUser.roles,
+        })
     } catch (error) {
         next(error)
     }
