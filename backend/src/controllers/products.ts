@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
 import { Error as MongooseError } from 'mongoose'
-import { join } from 'path'
+import { basename, join } from 'path'
+import { escape } from 'validator'
 import BadRequestError from '../errors/bad-request-error'
 import ConflictError from '../errors/conflict-error'
 import NotFoundError from '../errors/not-found-error'
@@ -40,10 +41,15 @@ const createProduct = async (
     next: NextFunction
 ) => {
     try {
-        const { description, category, price, title, image } = req.body
+        let { title, description, category } = req.body
+        const { price, image } = req.body
+
+        title = escape(String(title)).slice(0, 100)
+        description = escape(String(description)).slice(0, 1000)
+        category = escape(String(category)).slice(0, 50)
 
         // Переносим картинку из временной папки
-        if (image) {
+        if (image && image.fileName) {
             movingFile(
                 image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
@@ -81,12 +87,25 @@ const updateProduct = async (
 ) => {
     try {
         const { productId } = req.params
-        const { image } = req.body
 
-        // Переносим картинку из временной папки
-        if (image) {
+        if (typeof productId !== 'string') {
+            return next(new BadRequestError('Неверный формат ID'))
+        }
+
+        const updateData = {
+            ...req.body,
+            title: escape(String(req.body.title ?? '')).slice(0, 100),
+            description: escape(String(req.body.description ?? '')).slice(0, 1000),
+            category: escape(String(req.body.category ?? '')).slice(0, 50),
+            price: req.body.price ?? null,
+        }
+
+        if (req.body.image && req.body.image.fileName) {
+            const safeFileName = basename(req.body.image.fileName)
+            updateData.image = { ...req.body.image, fileName: safeFileName }
+
             movingFile(
-                image.fileName,
+                safeFileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
             )
@@ -94,15 +113,10 @@ const updateProduct = async (
 
         const product = await Product.findByIdAndUpdate(
             productId,
-            {
-                $set: {
-                    ...req.body,
-                    price: req.body.price ? req.body.price : null,
-                    image: req.body.image ? req.body.image : undefined,
-                },
-            },
+            { $set: updateData },
             { runValidators: true, new: true }
-        ).orFail(() => new NotFoundError('Нет товара по заданному id'))
+        ).orFail(() => new NotFoundError('Нет товара по id'))
+
         return res.send(product)
     } catch (error) {
         if (error instanceof MongooseError.ValidationError) {
@@ -128,10 +142,17 @@ const deleteProduct = async (
     next: NextFunction
 ) => {
     try {
+        // Извлекаем productId из параметров запроса
         const { productId } = req.params
+        // Проверяем, что productId имеет тип string
+        if (typeof productId !== 'string') {
+            return next(new BadRequestError('Неверный формат ID'))
+        }
+        // Пытаемся найти и удалить продукт по заданному ID
         const product = await Product.findByIdAndDelete(productId).orFail(
             () => new NotFoundError('Нет товара по заданному id')
         )
+
         return res.send(product)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
