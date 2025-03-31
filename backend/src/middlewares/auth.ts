@@ -39,24 +39,35 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     }
 }
 
+// Экспортируем функцию middleware для проверки ролей пользователей
 export function roleGuardMiddleware(...roles: Role[]) {
+    // Возвращаем функцию middleware, которая принимает req, res и next
     return (_req: Request, res: Response, next: NextFunction) => {
-        if (!res.locals.user) {
-            return next(new UnauthorizedError('Необходима авторизация'))
+        // Извлекаем пользователя из локальных данных ответа
+        const { user } = res.locals;
+
+        // Проверяем, авторизован ли пользователь
+        if (!user) {
+            // Если пользователь не авторизован, вызываем ошибку UnauthorizedError
+            return next(new UnauthorizedError('Необходима авторизация'));
         }
 
+        // Проверяем, имеет ли пользователь доступ, сравнивая его роли с разрешенными
         const hasAccess = roles.some((role) =>
-            res.locals.user.roles.includes(role)
-        )
+            user.roles.includes(role) // Проверяем, есть ли у пользователя хотя бы одна из требуемых ролей
+        );
 
+        // Если доступ не предоставлен, вызываем ошибку ForbiddenError
         if (!hasAccess) {
-            return next(new ForbiddenError('Доступ запрещен'))
+            return next(new ForbiddenError('Доступ запрещен'));
         }
 
-        return next()
+        // Если доступ предоставлен, продолжаем выполнение следующего middleware
+        return next();
     }
 }
 
+// Экспортируем функцию middleware для проверки доступа текущего пользователя к сущности
 export function currentUserAccessMiddleware<T>(
     model: Model<T>,
     idProperty: string,
@@ -64,12 +75,12 @@ export function currentUserAccessMiddleware<T>(
 ) {
     return async (req: Request, res: Response, next: NextFunction) => {
         const id = req.params[idProperty]
-
-        if (!res.locals.user) {
+        const {user} = res.locals
+        if (!user) {
             return next(new UnauthorizedError('Необходима авторизация'))
         }
 
-        if (res.locals.user.roles.includes(Role.Admin)) {
+        if (user.roles.includes(Role.Admin)) {
             return next()
         }
 
@@ -80,7 +91,7 @@ export function currentUserAccessMiddleware<T>(
         }
 
         const userEntityId = entity[userProperty] as Types.ObjectId
-        const hasAccess = new Types.ObjectId(res.locals.user.id).equals(
+        const hasAccess = new Types.ObjectId(user.id).equals(
             userEntityId
         )
 
