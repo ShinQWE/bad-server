@@ -4,19 +4,19 @@ import crypto from 'crypto';
 import fs from 'fs';
 import { extname, join } from 'path'
 
+// Определяем путь для загрузки файлов
+const upLoad = join(
+    __dirname,
+    process.env.UPLOAD_PATH_TEMP
+    ? `../public/${process.env.UPLOAD_PATH_TEMP}`
+    : '../public'
+)
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
-// Определяем путь для загрузки файлов
-    const upLoad = join(
-        __dirname,
-        process.env.UPLOAD_PATH_TEMP
-        ? `../public/${process.env.UPLOAD_PATH_TEMP}`
-        : '../public'
-    )
 
-// Создаем директорию для загрузки, если она не существует
+    // Создаем директорию для загрузки, если она не существует
     fs.mkdirSync(upLoad, { recursive: true })
-// Настраиваем хранилище multer
+    // Настраиваем хранилище multer
     const storage = multer.diskStorage({
         destination: (
         _req: Request,
@@ -37,31 +37,29 @@ type FileNameCallback = (error: Error | null, filename: string) => void
         },
     })
 
-// Определяем допустимые типы файлов
-const types = [
-    'image/png',
-    'image/jpg',
-    'image/jpeg',
-    'image/gif',
-    'image/svg+xml',
-]
+    // Определяем допустимые типы файлов
+    const types = [
+        'image/png',
+        'image/jpg',
+        'image/jpeg',
+        'image/gif',
+        'image/svg+xml',
+    ]
+    const fileFilter = (
+        _req: Request,
+        file: Express.Multer.File,
+        cb: FileFilterCallback
+    ) => {
+        if (!types.includes(file.mimetype)) {
+            return cb(null, false)
+        }
 
-const fileFilter = (
-    _req: Request,
-    file: Express.Multer.File,
-    cb: FileFilterCallback
-) => {
-    if (!types.includes(file.mimetype)) {
-        return cb(null, false)
+        return cb(null, true)
     }
-
-    return cb(null, true)
-}
-
-// Экспортируем конфигурацию multer
-export default multer({ storage,
-    fileFilter,
-    limits: {
-      fileSize: 5 * 1024 * 1024, 
-    },
-})
+    // Экспортируем конфигурацию multer
+    export default multer({ storage,
+        fileFilter,
+        limits: {
+        fileSize: 5 * 1024 * 1024, 
+        },
+    })
