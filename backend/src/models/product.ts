@@ -1,6 +1,6 @@
 import { unlink } from 'fs'
 import mongoose, { Document } from 'mongoose'
-import { join } from 'path'
+import { join, basename } from 'path'
 
 export interface IFile {
     fileName: string
@@ -37,6 +37,7 @@ const cardsSchema = new mongoose.Schema<IProduct>(
         },
         description: {
             type: String,
+            maxlength: [1000, 'Максимальная длина поля "description" - 1000'],
         },
         price: {
             type: Number,
@@ -48,24 +49,32 @@ const cardsSchema = new mongoose.Schema<IProduct>(
 
 cardsSchema.index({ title: 'text' })
 
-// Можно лучше: удалять старое изображением перед обновлением сущности
+// Удаление старого изображения перед обновлением
 cardsSchema.pre('findOneAndUpdate', async function deleteOldImage() {
     // @ts-ignore
     const updateImage = this.getUpdate().$set?.image
     const docToUpdate = await this.model.findOne(this.getQuery())
+
     if (updateImage && docToUpdate) {
-        unlink(
-            join(__dirname, `../public/${docToUpdate.image.fileName}`),
-            (err) => console.log(err)
-        )
+        const safeFileName = basename(docToUpdate.image.fileName)
+        const filePath = join(__dirname, `../public/${safeFileName}`)
+
+        unlink(filePath, (err) => {
+            if (err) console.error('Ошибка удаления старого файла:', err.message)
+        })
     }
 })
 
-// Можно лучше: удалять файл с изображением после удаление сущности
+// Удаление файла изображения при удалении продукта
 cardsSchema.post('findOneAndDelete', async (doc: IProduct) => {
-    unlink(join(__dirname, `../public/${doc.image.fileName}`), (err) =>
-        console.log(err)
-    )
+    if (!doc || !doc.image?.fileName) return
+
+    const safeFileName = basename(doc.image.fileName)
+    const filePath = join(__dirname, `../public/${safeFileName}`)
+
+    unlink(filePath, (err) => {
+        if (err) console.error('Ошибка удаления файла:', err.message)
+    })
 })
 
 export default mongoose.model<IProduct>('product', cardsSchema)
