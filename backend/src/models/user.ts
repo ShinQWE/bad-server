@@ -117,8 +117,7 @@ import mongoose, {
       },
     }
   )
-  
-  // Хеширование пароля перед сохранением
+
   userSchema.pre('save', async function (next) {
     try {
       if (this.isModified('password')) {
@@ -131,7 +130,6 @@ import mongoose, {
     }
   })
   
-  // Метод: генерация Access Token
   userSchema.methods.generateAccessToken = function (this: HydratedDocument<IUser, IUserMethods>) {
     return jwt.sign(
       {
@@ -146,7 +144,6 @@ import mongoose, {
     )
   }
   
-  // Метод: генерация Refresh Token
   userSchema.methods.generateRefreshToken = async function (
     this: HydratedDocument<IUser, IUserMethods>
   ) {
@@ -173,7 +170,6 @@ import mongoose, {
     return refreshToken
   }
   
-  // Метод: расчёт статистики заказов
   userSchema.methods.calculateOrderStats = async function (
     this: HydratedDocument<IUser, IUserMethods>
   ) {
@@ -206,7 +202,6 @@ import mongoose, {
     await this.save()
   }
   
-  // Статический метод: вход по email + пароль
   userSchema.statics.findUserByCredentials = async function (
     email: string,
     password: string

@@ -20,10 +20,10 @@ authRouter.get('/user', auth, getCurrentUser)
 authRouter.patch('/me', auth, updateCurrentUser)
 authRouter.get('/user/roles', auth, getCurrentUserRoles)
 
-// ⚠️ Лучше POST
+
 authRouter.post('/login', validateAuthentication, login)
 authRouter.get('/token', refreshAccessToken)
-authRouter.post('/token', refreshAccessToken) // ← временно для совместимости
+authRouter.post('/token', refreshAccessToken) 
 
 authRouter.post('/logout', logout)
 

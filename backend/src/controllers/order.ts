@@ -198,7 +198,7 @@ export const getOrders = async (
             !Number.isNaN(searchNumber) && order.orderNumber === searchNumber
           return matchesTitle || matchesNumber
         })
-      } // ← ✅ Вот тут была отсутствующая }
+      } 
   
       const totalOrders = orders.length
       const totalPages = Math.ceil(totalOrders / safeLimit)
@@ -287,7 +287,6 @@ export const createOrder = async (
         comment = '',
       } = req.body
   
-      // 🔧 Нормализация телефона (только цифры)
       const normalizedPhone = phone.replace(/\D/g, '')
   
       if (!Array.isArray(items)) {
@@ -316,7 +315,7 @@ export const createOrder = async (
         totalAmount: total,
         products: items,
         payment: escape(payment).slice(0, 50),
-        phone: normalizedPhone, // ✅ исправлено здесь
+        phone: normalizedPhone,
         email: escape(email).slice(0, 100),
         comment: escape(comment).slice(0, 1000),
         customer: userId,

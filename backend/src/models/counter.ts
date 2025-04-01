@@ -9,7 +9,7 @@ const counterSchema = new Schema<ICounter>({
         type: Number,
         required: true,
         min: 0,
-        max: Number.MAX_SAFE_INTEGER, // защищаем от переполнения
+        max: Number.MAX_SAFE_INTEGER, 
     },
 })
 

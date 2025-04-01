@@ -45,12 +45,10 @@ const createProduct = async (
         let { title, description, category } = req.body
         const { price, image } = req.body
 
-        // Экранирование и обрезка полей
         title = escape(String(title)).slice(0, 100)
         description = escape(String(description)).slice(0, 1000)
         category = escape(String(category)).slice(0, 50)
 
-        // Безопасное имя файла
         if (image && image.fileName) {
             image.fileName = basename(image.fileName)
             movingFile(

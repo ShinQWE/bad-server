@@ -11,7 +11,7 @@ import { Role } from '../models/user'
 
 const customerRouter = Router()
 
-// 🔒 Только авторизованные пользователи с ролью Admin
+
 customerRouter.get('/', auth, roleGuardMiddleware(Role.Admin), getCustomers)
 
 customerRouter.get('/:id', auth, roleGuardMiddleware(Role.Admin), validateObjId, getCustomerById)

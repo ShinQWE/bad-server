@@ -7,7 +7,6 @@ import crypto from 'crypto'
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
 
-// Папка загрузки — public/images или public/temp
 const uploadDir = join(
   __dirname,
   process.env.UPLOAD_PATH_TEMP
@@ -15,10 +14,8 @@ const uploadDir = join(
     : '../public'
 )
 
-// Убедимся, что папка существует
 fs.mkdirSync(uploadDir, { recursive: true })
 
-// Генерация безопасного имени
 const storage = multer.diskStorage({
   destination: (
     _req: Request,
@@ -39,7 +36,6 @@ const storage = multer.diskStorage({
   },
 })
 
-// Разрешённые типы
 const allowedTypes = [
   'image/png',
   'image/jpg',
@@ -47,7 +43,7 @@ const allowedTypes = [
   'image/gif',
   'image/svg+xml',
   'image/webp',
-  'application/octet-stream', // на всякий случай
+  'application/octet-stream',
 ]
 
 const fileFilter = (
@@ -66,6 +62,6 @@ export default multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024, 
   },
 })

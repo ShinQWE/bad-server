@@ -5,17 +5,14 @@ import path from 'path'
 export default function serveStatic(baseDir: string) {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
-            // Декодируем путь и убираем любые null-байты
-            const safePath = decodeURIComponent(req.path.replace(/\0/g, ''))
 
-            // Явно запрещаем ".." в путях (даже если path.resolve сработает)
+            const safePath = decodeURIComponent(req.path.replace(/\0/g, ''))
             if (safePath.includes('..')) {
                 return res.status(403).send({ message: 'Доступ запрещён' })
             }
 
             const resolvedPath = path.resolve(baseDir, `.${  safePath}`)
 
-            // Убеждаемся, что resolvedPath остаётся внутри baseDir
             if (!resolvedPath.startsWith(path.resolve(baseDir))) {
                 return res.status(403).send({ message: 'Доступ запрещён' })
             }

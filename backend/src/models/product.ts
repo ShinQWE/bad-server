@@ -49,7 +49,6 @@ const cardsSchema = new mongoose.Schema<IProduct>(
 
 cardsSchema.index({ title: 'text' })
 
-// Удаление старого изображения перед обновлением
 cardsSchema.pre('findOneAndUpdate', async function deleteOldImage() {
     // @ts-ignore
     const updateImage = this.getUpdate().$set?.image
@@ -65,7 +64,6 @@ cardsSchema.pre('findOneAndUpdate', async function deleteOldImage() {
     }
 })
 
-// Удаление файла изображения при удалении продукта
 cardsSchema.post('findOneAndDelete', async (doc: IProduct) => {
     if (!doc || !doc.image?.fileName) return
 

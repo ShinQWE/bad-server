@@ -76,7 +76,7 @@ const orderSchema: Schema = new Schema(
     { versionKey: false, timestamps: true }
 )
 
-// Присваиваем номер заказа
+
 orderSchema.pre('save', async function incrementOrderNumber(next) {
     const order = this
 
@@ -93,7 +93,6 @@ orderSchema.pre('save', async function incrementOrderNumber(next) {
     next()
 })
 
-// Обновляем статистику пользователя после сохранения заказа
 orderSchema.post('save', async function updateUserStats(doc) {
     const user = await User.findById(doc.customer)
     if (user) {
@@ -102,7 +101,6 @@ orderSchema.post('save', async function updateUserStats(doc) {
     }
 })
 
-// Обновляем статистику после удаления заказа
 orderSchema.post('findOneAndDelete', async function updateUserStats(order) {
     if (!order) return
 

@@ -5,11 +5,10 @@ import { ACCESS_TOKEN } from '../config'
 import ForbiddenError from '../errors/forbidden-error'
 import NotFoundError from '../errors/not-found-error'
 import UnauthorizedError from '../errors/unauthorized-error'
-import BadRequestError from '../errors/bad-request-error' // ✅ Добавлено
+import BadRequestError from '../errors/bad-request-error'
 
 import UserModel, { Role } from '../models/user'
 
-// Мидлвар для авторизации по Access Token
 const auth = async (req: Request, res: Response, next: NextFunction) => {
     const authHeader = req.header('Authorization')
 
@@ -45,7 +44,6 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     }
 }
 
-// 🔒 Защита по ролям (админ и т.д.)
 export function roleGuardMiddleware(...roles: Role[]) {
     return (_req: Request, res: Response, next: NextFunction) => {
         const {user} = res.locals
@@ -64,7 +62,6 @@ export function roleGuardMiddleware(...roles: Role[]) {
     }
 }
 
-// 🔒 Защита доступа к объектам по ID или если Admin
 export function currentUserAccessMiddleware<T>(
     model: Model<T>,
     idProperty: string,

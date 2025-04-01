@@ -1,7 +1,6 @@
 import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
 
-// 🛡️ Безопасное регулярное выражение для телефона
 export const phoneRegExp = /^[\d\s()+-]{6,30}$/
 
 export enum PaymentType {
@@ -9,20 +8,17 @@ export enum PaymentType {
   Online = 'online',
 }
 
-// ✅ Общий валидатор ObjectId
 const objectIdValidator = Joi.string().custom((value, helpers) => {
   if (Types.ObjectId.isValid(value)) return value
   return helpers.message({ custom: 'Невалидный id' })
 })
 
-// 🔐 Валидация ID в параметрах (универсально)
 export const validateObjId = celebrate({
   params: Joi.object().keys({
     productId: objectIdValidator.required(),
   }),
 })
 
-// 🛒 Валидация тела заказа
 export const validateOrderBody = celebrate({
   body: Joi.object().keys({
     items: Joi.array()
@@ -82,7 +78,6 @@ export const validateOrderBody = celebrate({
   }),
 })
 
-// 📦 Валидация создания товара
 export const validateProductBody = celebrate({
   body: Joi.object().keys({
     title: Joi.string().required().min(2).max(100).messages({
@@ -106,7 +101,6 @@ export const validateProductBody = celebrate({
   }),
 })
 
-// ✏️ Валидация обновления товара
 export const validateProductUpdateBody = celebrate({
   body: Joi.object().keys({
     title: Joi.string().min(2).max(100),
@@ -120,7 +114,7 @@ export const validateProductUpdateBody = celebrate({
   }),
 })
 
-// 👤 Валидация регистрации пользователя
+
 export const validateUserBody = celebrate({
   body: Joi.object().keys({
     name: Joi.string().min(2).max(30).messages({
@@ -136,7 +130,6 @@ export const validateUserBody = celebrate({
   }),
 })
 
-// 🔐 Валидация входа
 export const validateAuthentication = celebrate({
   body: Joi.object().keys({
     email: Joi.string().required().email().max(100).messages({
