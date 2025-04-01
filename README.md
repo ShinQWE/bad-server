@@ -3,6 +3,8 @@ https://github.com/ShinQWE/bad-server#
 
 
 # Проектная работа "WebLarek. Плохой сервер.", спринт 17
+[https://github.com/ShinQWE/bad-server](https://github.com/ShinQWE/bad-server/tree/REVIEW)
+Алексей, 13, FullStack
 
 ## Подготовка к работе
 1. Склонировать репозиторий
